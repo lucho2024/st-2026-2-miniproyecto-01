@@ -17,6 +17,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.seasonal import STL
+from statsmodels.tsa.stattools import acf, adfuller, pacf
+
 
 from comun import (RAIZ, backtest, cargar_serie, estacional_ingenuo,  # noqa: E402
                    fechas_siguientes, ingenuo)
@@ -33,14 +37,14 @@ RESULTADOS.mkdir(exist_ok=True)
 # Cambie estos cuatro datos por los de la serie del grupo y documente la
 # fuente en datos/README.md. La serie de ejemplo solo sirve para probar que
 # el guion corre.
-ARCHIVO = "datos/air_passengers.csv"
-FECHA = "Month"
-VALOR = "#Passengers"
+ARCHIVO = "datos/pance_mensual.csv"
+FECHA = "mes"
+VALOR = "valor"
 PERIODO = 12
 
 # Lo que se hizo con los huecos y con los datos atípicos, en una línea. Va
 # a la columna `decision` de la tabla de métricas.
-DECISION = "TODO: describa aquí la decisión sobre huecos y datos atípicos"
+DECISION = "Sin Datos vacios, la serie historica viene completa"
 
 
 def preparar(serie):
@@ -68,7 +72,45 @@ def graficar_serie(serie):
 
 def descomponer(serie):
     """TODO: STL robusta con el periodo de la serie; guarde figuras/stl.png."""
-    raise NotImplementedError("descomposición STL")
+    
+    stl = STL(serie, period=PERIODO, robust=True).fit()
+
+    # 2. Graficar y guardar la figura en figuras/stl.png
+    figura = stl.plot()
+    figura.set_size_inches(10, 6)
+    figura.tight_layout()
+    figura.savefig(FIGURAS / "stl.png", dpi=120)
+    plt.close(figura)
+
+    # 3. Calcular mes más alto y más bajo de la estacionalidad
+    estacional_mes = stl.seasonal.groupby(stl.seasonal.index.month).mean()
+    nombres = [
+        "Ene",
+        "Feb",
+        "Mar",
+        "Abr",
+        "May",
+        "Jun",
+        "Jul",
+        "Ago",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dic",
+    ]
+    estacional_mes.index = nombres
+    print(
+        f"Estacionalidad más alta: {estacional_mes.idxmax()} ({estacional_mes.max():+.1f} mm)"
+    )
+    print(
+        f"Estacionalidad más baja: {estacional_mes.idxmin()} ({estacional_mes.min():+.1f} mm)"
+    )
+    # 4. Encontrar el residuo más grande (atípico)
+    fecha_peor = stl.resid.abs().idxmax()
+    peor_residuo = stl.resid.loc[fecha_peor]
+    print(
+        f"Residuo más extremo: {fecha_peor:%Y-%m} con {peor_residuo:+.1f} mm\n"
+    )
 
 
 # ============================================================
@@ -81,7 +123,48 @@ def estacionariedad(serie):
     Imprima el valor p de cada versión, elija d y D, y guarde la ACF y la
     PACF de la serie elegida en figuras/acf_pacf.png. Devuelva (d, D).
     """
-    raise NotImplementedError("estacionariedad, ACF y PACF")
+    combinaciones = [
+        ("original (d=0, D=0)", serie, "ct", 0, 0),
+        ("diff() (d=1, D=0)", serie.diff(), "c", 1, 0),
+        ("diff(12) (d=0, D=1)", serie.diff(12), "c", 0, 1),
+        ("diff(12).diff() (d=1, D=1)", serie.diff(12).diff(), "c", 1, 1),
+    ]
+
+    print("\n--- Pruebas de Estacionariedad (ADF) ---")
+    for nombre, s, reg, _, _ in combinaciones:
+        p = adfuller(s.dropna(), regression=reg, autolag="AIC")[1]
+        p_str = f"{p:.4e}" if p < 1e-4 else f"{p:.4f}"
+        print(f"  {nombre:28s} (reg='{reg}'): valor p = {p_str}")
+
+    # Regla: combinación con menos diferencias cuyo valor p queda bajo 0.05
+    d, D = 1, 0
+    print(f"\nÓrdenes elegidos: d = {d}, D = {D}")
+
+    # Serie diferenciada elegida
+    x = serie.diff().dropna()
+
+    def fuera(valores, intervalo):
+        """Rezagos (sin el 0) cuyo valor sale de la banda centrada en cero."""
+        banda = intervalo[:, 1] - valores
+        return [k for k in range(1, len(valores)) if abs(valores[k]) > banda[k]]
+
+    rez_acf = fuera(*acf(x, nlags=36, alpha=0.05))
+    rez_pacf = fuera(*pacf(x, nlags=36, alpha=0.05, method="ywm"))
+    print(f"Rezagos fuera de banda en ACF : {rez_acf}")
+    print(f"Rezagos fuera de banda en PACF: {rez_pacf}\n")
+
+    # Gráfica de ACF y PACF
+    fig, ejes = plt.subplots(1, 2, figsize=(8.5, 3.2), sharey=True)
+    plot_acf(x, lags=36, ax=ejes[0], title=f"ACF (d={d}, D={D})")
+    plot_pacf(x, lags=36, ax=ejes[1], title=f"PACF (d={d}, D={D})", method="ywm")
+    for eje in ejes:
+        eje.set_ylim(-1.05, 1.05)
+        eje.set_xticks(range(0, 37, 6))
+    fig.tight_layout()
+    fig.savefig(FIGURAS / "acf_pacf.png", dpi=120)
+    plt.close(fig)
+
+    return d, D
 
 
 # ============================================================
