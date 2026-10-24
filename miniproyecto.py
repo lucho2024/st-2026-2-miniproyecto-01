@@ -44,16 +44,53 @@ PERIODO = 12
 
 # Lo que se hizo con los huecos y con los datos atípicos, en una línea. Va
 # a la columna `decision` de la tabla de métricas.
-DECISION = "Sin Datos vacios, la serie historica viene completa"
+DECISION = "Sin huecos: índice mensual completo verificado, sin códigos de faltante; atípicos conservados por lluvia real"
 
 
 def preparar(serie):
-    """TODO: aplique la decisión del grupo sobre huecos y datos atípicos.
+    """Verifica continuidad del índice mensual, ausencia de faltantes y atípicos.
 
-    Por ejemplo, interpolar los meses vacíos o recortar el tramo afectado.
-    Debe devolver una serie sin NaN.
+    Comprueba que la secuencia cronológica esté completa, sin registros
+    duplicados, centinelas ni meses omitidos.
     """
-    return serie
+    print("\n--- Verificación de calidad de la serie ---")
+
+    # 1. Construir índice mensual completo desde la primera fecha hasta la última
+    primera_fecha = serie.index.min()
+    ultima_fecha = serie.index.max()
+    indice_completo = pd.date_range(start=primera_fecha, end=ultima_fecha, freq="MS")
+
+    print(f"  Primera fecha detectada         : {primera_fecha:%Y-%m}")
+    print(f"  Última fecha detectada          : {ultima_fecha:%Y-%m}")
+    print(f"  Índice mensual construido       : {len(indice_completo)} meses consecutivos")
+
+    # Reindexar la serie sobre el índice completo
+    serie_reindexada = serie.reindex(indice_completo)
+    nans_al_reindexar = serie_reindexada.isna().sum()
+    print(f"  NaNs al reindexar               : {nans_al_reindexar} (meses faltantes en la secuencia)")
+
+    # 2. Comprobar códigos que esconden un faltante o inconsistencias
+    fechas_rep = serie.index.duplicated().sum()
+    negativos = (serie < 0).sum()
+    ceros = (serie == 0).sum()
+    print(f"  Fechas repetidas                : {fechas_rep}")
+    print(f"  Valores negativos / centinelas  : {negativos}")
+    print(f"  Meses con lluvia = 0 mm         : {ceros} (mínimo observado: {serie.min():.1f} mm)")
+
+    # 3. Detección de atípicos estadísticos
+    q1 = serie.quantile(0.25)
+    q3 = serie.quantile(0.75)
+    iqr = q3 - q1
+    atipicos = serie[(serie < q1 - 1.5 * iqr) | (serie > q3 + 1.5 * iqr)]
+    print(f"  Atípicos estadísticos (1.5*IQR) : {len(atipicos)} meses detectados (máximo: {serie.max():.1f} mm en {serie.idxmax():%Y-%m})")
+    print(f"  Decisión sobre atípicos         : Conservar (corresponden a lluvia real / eventos La Niña)\n")
+
+    # Validaciones formales
+    assert nans_al_reindexar == 0, f"Faltan {nans_al_reindexar} meses en la secuencia histórica"
+    assert fechas_rep == 0, "Hay fechas duplicadas en la serie"
+    assert negativos == 0, "Hay códigos de faltante (-999 o negativos)"
+
+    return serie_reindexada
 
 
 def graficar_serie(serie):
