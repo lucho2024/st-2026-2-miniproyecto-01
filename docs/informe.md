@@ -177,136 +177,86 @@ es enorme en porcentaje. Por eso los modelos se comparan sobre todo con el
 
 ## 4. Estacionariedad e identificación
 
-Un SARIMA necesita una serie **estacionaria**, que oscile alrededor de un
-nivel fijo. Para lograrlo se puede diferenciar: restar el mes anterior
-($d = 1$) quita una tendencia, y restar el mismo mes del año anterior
-($D = 1$) quita el ciclo anual. La prueba ADF decide si hace falta: su
-hipótesis nula es que la serie **no** es estacionaria, y un valor p menor
-que 0.05 la rechaza. En la serie original se usa `regression='ct'` (constante
-y tendencia), para no confundir una posible recta con falta de
-estacionariedad; en las diferenciadas, `'c'`, porque ya no tienen tendencia.
+Un SARIMA necesita una serie que oscile alrededor de un nivel fijo
+(**estacionaria**). La prueba ADF lo verifica: si el valor p es menor que
+0.05, la serie se considera estacionaria. Si no, se diferencia: restar el mes
+anterior ($d = 1$) o el mismo mes del año anterior ($D = 1$).
 
 | Versión | $d$ | $D$ | `regression` | Valor p |
 |---|---|---|---|---|
 | Original | 0 | 0 | `ct` | 0.2092 |
-| Original | 0 | 0 | `c` | 0.0992 |
 | `diff()` | 1 | 0 | `c` | $3.1 \times 10^{-11}$ |
 | `diff(12)` | 0 | 1 | `c` | **0.0033** |
 | `diff(12).diff()` | 1 | 1 | `c` | 0.0017 |
 
-La original no pasa la prueba. La regla del curso es elegir la combinación
-con **menos diferencias** que pase, y aquí hay un empate: `diff()` y
-`diff(12)` pasan las dos con una sola diferencia. Se elige
-**$d = 0$, $D = 1$** por tres razones:
-
-- La serie no tiene tendencia sino un ciclo anual (sección 2), así que la
-  diferencia que corresponde es la estacional.
-- Con `diff()` el ciclo anual no desaparece: su ACF todavía tiene una barra
-  positiva en el rezago 12 (+0.22). Además, la barra negativa en el rezago 1
-  (−0.29) y la PACF negativa en los rezagos 1 a 5 son la señal de
-  **diferenciar de más**. La ADF no detecta este problema, porque no está
-  pensada para el ciclo estacional.
-- Es la misma elección del taller 1.
-
-Con la serie elegida, $w_t = y_t - y_{t-12}$ (122 datos, banda de
-$\pm 1.96/\sqrt{122} \approx \pm 0.177$):
+En la original se usa `'ct'` (con tendencia) y en las diferenciadas `'c'`. La
+original no pasa. Con una sola diferencia pasan dos opciones, y se elige
+**$d = 0$, $D = 1$**, porque la serie no tiene tendencia sino un ciclo anual
+(sección 2). Con `diff()`, en cambio, el patrón anual sigue presente en el
+rezago 12 de la ACF. Es la misma elección del taller 1.
 
 ![ACF y PACF](../figuras/acf_pacf.png)
 
-- **ACF fuera de la banda:** rezagos 7 (+0.27) y 12 (−0.35).
-- **PACF fuera de la banda:** rezagos 7 (+0.25), 12 (−0.36), 20 (−0.26) y
-  24 (−0.28).
-
-La ACF **se corta** en el rezago 12 y la PACF **baja poco a poco** en 12 y
-24: es la firma de un término **MA estacional** ($Q = 1$). En los rezagos
-cortos no queda casi nada, lo que sugiere $p = q = 0$. El punto de partida
-para la sección 5 es entonces un **SARIMA$(0,0,0)(0,1,1)_{12}$**. La barra en
-el rezago 7 probablemente es azar: con 36 rezagos y bandas al 95 % se esperan
-unas $36 \times 0.05 \approx 1.8$ barras fuera por casualidad, y no hay un
-motivo físico para una relación de 7 meses.
+Con la serie elegida, $w_t = y_t - y_{t-12}$, salen de la banda la **ACF** en
+los rezagos 7 (+0.27) y 12 (−0.35), y la **PACF** en 7, 12, 20 y 24. La
+barra aislada en 12 sugiere un modelo con un término estacional ($Q = 1$) y
+nada más: **SARIMA$(0,0,0)(0,1,1)_{12}$**. La barra en 7 probablemente es
+azar.
 
 ## 5. Modelos clásicos
 
-Con $d = 0$ y $D = 1$ fijos, se probaron todas las combinaciones pequeñas de
-los demás órdenes ($p, q \in \{0, 1, 2\}$ y $P, Q \in \{0, 1\}$): 36 modelos,
-comparados por AIC, que premia el buen ajuste y castiga cada parámetro de más.
-Los cinco mejores:
+Se probaron 36 combinaciones de órdenes y se compararon por AIC, que premia
+el buen ajuste y castiga los parámetros de más:
 
-| Modelo | Parámetros | AIC |
-|---|---|---|
-| **SARIMA$(0,0,0)(0,1,1)_{12}$** | 1 | **382.0** |
-| SARIMA$(0,0,0)(1,1,1)_{12}$ | 2 | 383.2 |
-| SARIMA$(2,0,2)(0,1,1)_{12}$ | 5 | 383.4 |
-| SARIMA$(0,0,1)(0,1,1)_{12}$ | 2 | 384.0 |
-| SARIMA$(1,0,0)(0,1,1)_{12}$ | 2 | 384.0 |
+| Modelo | AIC |
+|---|---|
+| **SARIMA$(0,0,0)(0,1,1)_{12}$** | **382.0** |
+| SARIMA$(0,0,0)(1,1,1)_{12}$ | 383.2 |
+| SARIMA$(2,0,2)(0,1,1)_{12}$ | 383.4 |
 
-Gana el más simple, el mismo que sugerían la ACF y la PACF (sección 4); los
-que agregan parámetros no mejoran. El peor de los 36, sin el término
-estacional, tiene AIC 428.0. Las cifras salen de ajustar la serie dividida por
-100, para que el optimizador funcione bien. El modelo elegido es
+Gana el más simple, el mismo que sugería la ACF:
 
 $$y_t - y_{t-12} = \varepsilon_t + \Theta\,\varepsilon_{t-12}, \qquad \Theta = -0.853.$$
 
-En palabras: la lluvia de este abril es la del abril pasado, corregida por
-cuánto se equivocó el modelo ese mes. Como $\Theta$ está cerca de $-1$, el
-modelo termina pronosticando un **patrón casi fijo para cada mes**, parecido
-al promedio de todos los abriles, todos los mayos, etc. Tiene sentido: las
-temporadas de lluvia llegan cada año en las mismas fechas.
+En palabras: el modelo pronostica cada mes con un **patrón casi fijo**,
+parecido al promedio de ese mes en los años anteriores. Tiene sentido, porque
+las temporadas de lluvia llegan cada año en las mismas fechas.
 
 ![Residuos](../figuras/residuos.png)
 
-**Residuos.** Si el modelo captó todo lo que se puede predecir, lo que sobra
-debe ser azar. La gráfica no muestra patrones y la ACF no tiene barras fuera
-de la banda (el rezago 7 apenas la roza). La prueba de **Ljung-Box**, cuya
-hipótesis es que los residuos son azar, lo confirma: valor p **0.429** con 12
-rezagos y **0.266** con 24, ambos mayores que 0.05. El error típico es de
-110.6 mm, y el residuo más grande es abril de 2024 (+279.6 mm), el mes más
-lluvioso de la serie.
+**Residuos.** Lo que el modelo no explica se comporta como azar: no hay
+patrones en la gráfica ni barras fuera de la banda, y la prueba de
+**Ljung-Box** lo confirma (valor p 0.429 con 12 rezagos y 0.266 con 24, ambos
+mayores que 0.05).
 
-**SARIMAX.** La variable exógena es el **número de días del mes**. La lluvia
-mensual es una suma, así que un mes más largo puede acumular más. Se conoce
-con certeza para cualquier mes futuro, porque sale del calendario: no hay
-fuga. El modelo agrega un término $\beta\,x_t$, con $x_t$ los días del mes:
-
-$$y_t = \beta\,x_t + u_t, \qquad u_t \sim \text{SARIMA}(0,0,0)(0,1,1)_{12}.$$
-
-El resultado es $\beta = -100.9$ mm por día, con valor p 0.095, y el AIC baja
-apenas de 382.0 a 381.6. El signo negativo no tiene sentido físico, y la
-explicación es que, al comparar cada mes con el mismo mes del año anterior,
-los días solo cambian en febrero (28 o 29). El efecto sale de unos pocos
-febreros bisiestos, así que **probablemente es casualidad**. En el
-*backtest* el SARIMAX mejora un poco al SARIMA (RMSE 113.79 frente a 117.05),
-pero con tan poca evidencia no se puede afirmar que la exógena aporte.
+**SARIMAX.** Como variable externa se usó el **número de días del mes**: se
+conoce de antemano por el calendario, así que no hay fuga. Mejora un poco el
+pronóstico (RMSE de 117.05 a 113.79), pero el efecto sale de unos pocos
+febreros bisiestos y tiene un signo sin sentido (−100.9 mm por día), así que
+**probablemente es casualidad**.
 
 ## 6. Tabla de métricas
 
-| Modelo | Decisión | RMSE | MAE | MAPE (%) |
-|---|---|---|---|---|
-| SARIMAX$(0,0,0)(0,1,1)_{12}$ + días del mes | Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto | **113.79** | **91.75** | 54.31 |
-| SARIMA$(0,0,0)(0,1,1)_{12}$ | Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto | 117.05 | 93.35 | 54.67 |
-| Estacional ingenuo | Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto | 154.93 | 112.39 | **43.90** |
-| Ingenuo | Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto | 219.76 | 185.33 | 121.05 |
+Decisión sobre los datos, común a todas las filas: *sin huecos (regla del
+80 % no activada); atípicos del residuo STL conservados; meses con totales
+diarios señalados como posible artefacto*.
+
+| Modelo | RMSE | MAE | MAPE (%) |
+|---|---|---|---|
+| SARIMAX$(0,0,0)(0,1,1)_{12}$ + días del mes | **113.79** | **91.75** | 54.31 |
+| SARIMA$(0,0,0)(0,1,1)_{12}$ | 117.05 | 93.35 | 54.67 |
+| Estacional ingenuo | 154.93 | 112.39 | **43.90** |
+| Ingenuo | 219.76 | 185.33 | 121.05 |
 
 ## 7. Conclusión
 
 El mejor modelo clásico es el **SARIMAX$(0,0,0)(0,1,1)_{12}$ con los días
-del mes**. Frente a la mejor línea base, el estacional ingenuo:
+del mes**. Frente al estacional ingenuo, la mejor línea base, el error baja
+un **26.6 % en RMSE** (de 154.93 a 113.79) y un **18.4 % en MAE** (de 112.39
+a 91.75): unos 21 mm menos por mes. El MAPE sube un 23.7 % (de 43.90 a
+54.31) porque en los meses muy secos unos pocos milímetros de error pesan
+mucho en porcentaje.
 
-| Métrica | Estacional ingenuo | SARIMAX | Cambio |
-|---|---|---|---|
-| RMSE | 154.93 | 113.79 | **−26.6 %** |
-| MAE | 112.39 | 91.75 | **−18.4 %** |
-| MAPE | 43.90 | 54.31 | +23.7 % |
-
-Mejora en las dos métricas en milímetros: se equivoca en promedio unos 21 mm
-menos por mes. El MAPE empeora porque el modelo, al pronosticar un patrón
-casi fijo, falla en porcentaje en los meses muy secos, donde unos pocos
-milímetros de error pesan mucho. Casi toda la mejora viene del SARIMA; la
-exógena aporta poco y probablemente por azar, así que el SARIMA solo es una
-alternativa igual de válida y más simple.
-
-El modelo sigue fallando en los meses extremos: los muy lluviosos, como abril
-de 2024, y los meses medidos con totales diarios (sección 1), porque
-pronostica un año típico. Con un error típico de unos 110 mm, la mitad de la
-variación de la lluvia sigue sin explicarse (sección 2). Este SARIMAX es el
-modelo que el miniproyecto 2 debe superar.
+Casi toda la mejora viene del SARIMA, no de la exógena. El modelo sigue
+fallando en los meses extremos, como abril de 2024, porque pronostica un año
+típico. Es el modelo que el miniproyecto 2 debe superar.
