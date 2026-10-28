@@ -336,6 +336,12 @@ def main():
              fila("estacional ingenuo", serie,
                   lambda t, h: estacional_ingenuo(t, h, PERIODO))]
 
+    # Cómo es el backtest: orígenes y meses de prueba (las cifras de la sección 3)
+    origenes, _ = backtest(serie, ingenuo)
+    print(f"Backtest: {len(origenes)} orígenes, de {origenes['origen'].iloc[0]:%Y-%m} "
+          f"a {origenes['origen'].iloc[-1]:%Y-%m}; horizonte 1 a 12; meses de prueba "
+          f"{serie.index[-24]:%Y-%m} a {serie.index[-1]:%Y-%m}\n")
+
     try:
         descomponer(serie)
     except NotImplementedError as error:

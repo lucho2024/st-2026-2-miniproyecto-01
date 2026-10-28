@@ -150,10 +150,42 @@ sección 1.
 
 ## 3. Líneas base y backtest
 
-{{Cómo es el backtest: cuántos orígenes, horizonte y qué meses quedan en la
-prueba. Por qué ningún dato posterior al origen entra al modelo.}}
+Todos los modelos se miden con el mismo *backtest* de `comun.py`. Los
+**últimos 24 meses** (marzo de 2024 a febrero de 2026) quedan como prueba. El
+*backtest* avanza mes a mes por **13 orígenes**, de febrero de 2024 a febrero
+de 2025: en cada uno, el modelo se entrena con todo lo anterior y pronostica
+los **12 meses siguientes**, que se comparan con lo que realmente llovió. Son
+13 y no 24 porque cada origen necesita 12 meses reales por delante
+($24 - 12 + 1 = 13$). Las métricas de los 13 orígenes se promedian:
 
-{{RMSE, MAE y MAPE del ingenuo y del estacional ingenuo, y cuál gana.}}
+$$\mathrm{MAE} = \frac{1}{h}\sum_{k=1}^{h} |y_{t+k} - \hat y_{t+k}|, \qquad
+\mathrm{RMSE} = \sqrt{\frac{1}{h}\sum_{k=1}^{h} (y_{t+k} - \hat y_{t+k})^2}, \qquad
+\mathrm{MAPE} = \frac{100}{h}\sum_{k=1}^{h} \left|\frac{y_{t+k} - \hat y_{t+k}}{y_{t+k}}\right|.$$
+
+**Sin fuga de información.** Cada modelo es una función
+`modelo(entrenamiento, h)` que solo recibe los datos hasta el origen: el
+*backtest* corta la serie antes de llamarlo, así que el modelo no puede ver
+los meses que debe pronosticar. Habría fuga si, por ejemplo, se normalizara
+la serie con la media de todos los meses, o si se usara como variable
+exógena un dato que no se conoce en el origen, como el índice de El Niño
+observado en los meses futuros.
+
+Las dos líneas base son los pronósticos más simples posibles:
+
+| Modelo | Qué hace | RMSE | MAE | MAPE (%) |
+|---|---|---|---|---|
+| Estacional ingenuo | Repite el mismo mes del año anterior | **154.93** | **112.39** | **43.90** |
+| Ingenuo | Repite el último mes observado | 219.76 | 185.33 | 121.05 |
+
+**Gana el estacional ingenuo en las tres métricas**, como se esperaba en una
+serie con un ciclo anual tan marcado: repetir el abril pasado es mucho mejor
+que repetir el último mes. Es la marca que deben superar el SARIMA y el
+SARIMAX.
+
+El MAPE hay que leerlo con cuidado: en los meses muy secos (el mínimo es
+5.7 mm) un error pequeño en milímetros se vuelve enorme en porcentaje, y eso
+explica el 121 % del ingenuo. Por eso en esta serie los modelos se comparan
+sobre todo con el **RMSE y el MAE**, que están en milímetros.
 
 ## 4. Estacionariedad e identificación
 
