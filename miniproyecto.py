@@ -192,6 +192,10 @@ def estacionariedad(serie):
     """
     combinaciones = [
         ("original (d=0, D=0)", serie, "ct", 0, 0),
+        # Extra: la original con 'c'. Su p (≈0.10) muestra que la tendencia es
+        # débil; 'ct' se usa para no confundir una posible recta con una raíz
+        # unitaria, no porque la tendencia sea evidente (ver parte 2).
+        ("original (d=0, D=0)", serie, "c", 0, 0),
         ("diff() (d=1, D=0)", serie.diff(), "c", 1, 0),
         ("diff(12) (d=0, D=1)", serie.diff(12), "c", 0, 1),
         ("diff(12).diff() (d=1, D=1)", serie.diff(12).diff(), "c", 1, 1),
@@ -203,22 +207,55 @@ def estacionariedad(serie):
         p_str = f"{p:.4e}" if p < 1e-4 else f"{p:.4f}"
         print(f"  {nombre:28s} (reg='{reg}'): valor p = {p_str}")
 
-    # Regla: combinación con menos diferencias cuyo valor p queda bajo 0.05
-    d, D = 1, 0
+    # Regla del curso: la combinación con menos diferencias cuyo valor p queda
+    # bajo 0.05. Aquí hay un empate: diff() (d=1, D=0) y diff(12) (d=0, D=1)
+    # pasan las dos con una sola diferencia.
+    #
+    # Modificación: antes se elegía (d, D) = (1, 0). Se cambia a (0, 1) porque:
+    # - la serie no tiene tendencia sino un ciclo anual (parte 2), así que la
+    #   diferencia que corresponde es la estacional;
+    # - con diff() el ciclo anual no se va: la ACF conserva una barra positiva
+    #   en el rezago 12, y la barra negativa en 1 junto con la PACF negativa en
+    #   los rezagos 1 a 5 son señal de diferenciar de más;
+    # - ADF no detecta raíces unitarias estacionales, así que su p bajo con
+    #   diff() no garantiza que la estacionalidad se haya ido;
+    # - es la misma elección del taller 1.
+    d, D = 0, 1
     print(f"\nÓrdenes elegidos: d = {d}, D = {D}")
 
-    # Serie diferenciada elegida
-    x = serie.diff().dropna()
+    # Serie diferenciada elegida, construida a partir de d y D para que la
+    # figura y los rezagos correspondan siempre a la elección
+    x = serie.copy()
+    if D:
+        x = x.diff(PERIODO)
+    if d:
+        x = x.diff()
+    x = x.dropna()
 
     def fuera(valores, intervalo):
         """Rezagos (sin el 0) cuyo valor sale de la banda centrada en cero."""
         banda = intervalo[:, 1] - valores
         return [k for k in range(1, len(valores)) if abs(valores[k]) > banda[k]]
 
-    rez_acf = fuera(*acf(x, nlags=36, alpha=0.05))
-    rez_pacf = fuera(*pacf(x, nlags=36, alpha=0.05, method="ywm"))
-    print(f"Rezagos fuera de banda en ACF : {rez_acf}")
-    print(f"Rezagos fuera de banda en PACF: {rez_pacf}\n")
+    def con_valores(rezagos, valores):
+        return ", ".join(f"{k} ({valores[k]:+.2f})" for k in rezagos)
+
+    valores_acf, intervalo_acf = acf(x, nlags=36, alpha=0.05)
+    valores_pacf, intervalo_pacf = pacf(x, nlags=36, alpha=0.05, method="ywm")
+    rez_acf = fuera(valores_acf, intervalo_acf)
+    rez_pacf = fuera(valores_pacf, intervalo_pacf)
+    print(f"Serie elegida: {len(x)} datos, banda aproximada ±{1.96 / np.sqrt(len(x)):.3f}")
+    print(f"Rezagos fuera de banda en ACF : {con_valores(rez_acf, valores_acf)}")
+    print(f"Rezagos fuera de banda en PACF: {con_valores(rez_pacf, valores_pacf)}")
+
+    # Comparación con la alternativa descartada, diff() (d=1, D=0): respalda
+    # la elección con las cifras que se citan en el informe
+    alterna = serie.diff().dropna()
+    valores_alt, intervalo_alt = acf(alterna, nlags=36, alpha=0.05)
+    valores_palt, intervalo_palt = pacf(alterna, nlags=36, alpha=0.05, method="ywm")
+    print("Alternativa descartada diff() (d=1, D=0):")
+    print(f"  ACF  fuera de banda: {con_valores(fuera(valores_alt, intervalo_alt), valores_alt)}")
+    print(f"  PACF fuera de banda: {con_valores(fuera(valores_palt, intervalo_palt), valores_palt)}\n")
 
     # Gráfica de ACF y PACF
     fig, ejes = plt.subplots(1, 2, figsize=(8.5, 3.2), sharey=True)
