@@ -153,6 +153,25 @@ def descomponer(serie):
     print(
         f"Estacionalidad más baja: {estacional_mes.idxmin()} ({estacional_mes.min():+.1f} mm)"
     )
+    print("Estacional promedio por mes (mm):")
+    print(estacional_mes.round(1).to_frame().T.to_string(index=False))
+    print(f"Amplitud estacional: {estacional_mes.max() - estacional_mes.min():.1f} mm")
+
+    # Tendencia: promedio por año, para ver si tiene dirección o es un ciclo
+    tendencia_anio = stl.trend.groupby(stl.trend.index.year).mean()
+    print("Tendencia promedio por año (mm/mes):")
+    print(tendencia_anio.round(0).astype(int).to_frame().T.to_string(index=False))
+
+    # Tamaño de cada componente y fuerza de la estacionalidad y de la tendencia
+    # (Hyndman y Athanasopoulos, Forecasting: Principles and Practice, §3.4)
+    var_r = stl.resid.var()
+    fuerza_s = max(0, 1 - var_r / (stl.seasonal + stl.resid).var())
+    fuerza_t = max(0, 1 - var_r / (stl.trend + stl.resid).var())
+    print(f"Varianza: serie {serie.var():.0f}, tendencia {stl.trend.var():.0f}, "
+          f"estacional {stl.seasonal.var():.0f}, residuo {var_r:.0f}")
+    print(f"Fuerza estacional: {fuerza_s:.2f}; fuerza de la tendencia: {fuerza_t:.2f}")
+    print(f"Meses con peso 0 en la STL robusta: {int((stl.weights == 0).sum())}")
+
     # 4. Encontrar el residuo más grande (atípico)
     fecha_peor = stl.resid.abs().idxmax()
     peor_residuo = stl.resid.loc[fecha_peor]

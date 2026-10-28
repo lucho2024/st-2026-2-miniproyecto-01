@@ -121,9 +121,52 @@ señalados como posible artefacto*.
 
 ![STL](../figuras/stl.png)
 
-{{Lectura de la descomposición STL: cómo es la tendencia, qué meses quedan
-arriba y abajo en la estacional y con cuánto, y dónde está el residuo más
-grande.}}
+La STL robusta con periodo 12 separa la serie en tendencia, estacional y
+residuo, $y_t = T_t + S_t + R_t$, con suavizados LOESS. Con `robust=True` los
+meses de residuo grande reciben un peso bajo (3 meses quedan con peso 0), de
+modo que los atípicos no deforman la tendencia ni la estacional.
+
+**Tendencia.** Promedio por año (mm/mes):
+
+| 2015 | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 155 | 192 | 222 | 230 | 213 | 197 | 231 | 198 | 164 | 192 | 289 | 339 |
+
+No tiene una dirección sostenida: sube hasta 2018, baja en 2020, sube en 2021,
+cae en 2023 y vuelve a subir. Más que una tendencia es un **ciclo cuasi
+periódico**, sin periodo fijo, que coincide con los episodios de El Niño y La
+Niña: el nivel bajo de 2015 con El Niño de 2015–2016, el alto de 2021 con La
+Niña y la caída de 2023 con El Niño de 2023. El salto final a 289 y 339 mm/mes
+hay que leerlo con cuidado: en el extremo de la serie LOESS solo tiene vecinos
+de un lado (**efecto de borde**), y 2025 fue además un año muy lluvioso.
+
+**Estacional.** Promedio por mes (mm):
+
+| Ene | Feb | Mar | Abr | May | Jun | Jul | Ago | Sep | Oct | Nov | Dic |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| −40.6 | +24.1 | +69.3 | **+118.6** | +109.4 | −59.0 | −102.7 | **−125.1** | −93.4 | +20.8 | +68.1 | +17.3 |
+
+El régimen es **bimodal**, el típico de la zona andina colombiana: dos
+temporadas de lluvia, de marzo a mayo (máximo en abril, +118.6 mm) y de
+octubre a noviembre (noviembre, +68.1 mm), y dos temporadas secas, una larga
+de junio a septiembre (mínimo en agosto, −125.1 mm) y una corta de diciembre
+a febrero (enero, −40.6 mm). La amplitud entre abril y agosto es de
+243.7 mm: en promedio, abril recibe unos 244 mm más de lluvia que agosto.
+
+**Residuo.** Su varianza (7 138) es casi tan grande como la de la estacional
+(8 381), mientras que la de la tendencia es mucho menor (1 643). Con la medida
+de Hyndman y Athanasopoulos (*Forecasting: Principles and Practice*, §3.4),
+
+$$F_S = \max\left(0,\ 1 - \frac{\mathrm{Var}(R_t)}{\mathrm{Var}(S_t + R_t)}\right) = 0.53,
+\qquad
+F_T = \max\left(0,\ 1 - \frac{\mathrm{Var}(R_t)}{\mathrm{Var}(T_t + R_t)}\right) = 0.10,$$
+
+la estacionalidad es moderada y la tendencia casi nula. Cerca de la mitad de
+la variación mes a mes es ruido, así que ningún modelo debería pronosticar
+esta serie con mucha precisión; eso ya se ve en el MAPE de 43.9 % del
+estacional ingenuo. El residuo más grande es **diciembre de 2025, −356.9 mm**,
+en buena parte por el efecto de borde de la tendencia; este y los demás
+atípicos se analizan en la sección 1.
 
 ## 3. Líneas base y backtest
 
