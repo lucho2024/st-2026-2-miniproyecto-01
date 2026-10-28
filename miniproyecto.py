@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.stats.diagnostic import acorr_ljungbox
+from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.seasonal import STL
 from statsmodels.tsa.stattools import acf, adfuller, pacf
 
@@ -277,37 +279,116 @@ def estacionariedad(serie):
 # Cada modelo es una función modelo(entrenamiento, h) que devuelve h
 # pronósticos y solo usa `entrenamiento`. Así entra al backtest común.
 
-def elegir_sarima(serie, d, D):
-    """TODO: rejilla pequeña de órdenes (p, q, P, Q) comparada por AIC.
+# La lluvia está en cientos de mm. Como en la sesión 5 (B3), los modelos se
+# ajustan con la serie dividida por 100 para que el optimizador se mueva, y
+# el pronóstico se multiplica por 100 al final. Es la misma constante para
+# todos los meses, así que no introduce fuga.
+ESCALA = 100
 
-    Ajuste con toda la serie preparada, imprima la tabla de AIC, revise los
-    residuos del elegido con Ljung-Box y guarde figuras/residuos.png.
-    Devuelva el orden y el orden estacional elegidos.
+
+def ajustar(y, orden, orden_estacional, exog=None):
+    """SARIMA(p,d,q)(P,D,Q)m sobre y en la escala de ajuste; con exog, SARIMAX."""
+    return ARIMA(y, exog=exog, order=orden, seasonal_order=orden_estacional).fit()
+
+
+def elegir_sarima(serie, d, D):
+    """Rejilla pequeña de órdenes (p, q, P, Q) comparada por AIC.
+
+    Ajusta con toda la serie preparada, imprime la tabla de AIC, revisa los
+    residuos del elegido con Ljung-Box y guarda figuras/residuos.png.
+    Devuelve el orden y el orden estacional elegidos.
     """
-    raise NotImplementedError("selección del SARIMA")
+    y = serie / ESCALA
+    filas = []
+    for p in range(3):
+        for q in range(3):
+            for P in range(2):
+                for Q in range(2):
+                    ajuste = ajustar(y, (p, d, q), (P, D, Q, PERIODO))
+                    filas.append({"orden": (p, d, q), "estacional": (P, D, Q, PERIODO),
+                                  "parámetros": p + q + P + Q,
+                                  "AIC": round(ajuste.aic, 1), "BIC": round(ajuste.bic, 1)})
+    tabla = pd.DataFrame(filas).sort_values("AIC").reset_index(drop=True)
+    print("\n--- Rejilla SARIMA por AIC ---")
+    print(f"{len(tabla)} modelos ajustados; los cinco primeros:")
+    print(tabla.head(5).to_string())
+    print(f"El peor: {tabla.iloc[-1]['orden']}{tabla.iloc[-1]['estacional']} con AIC {tabla.iloc[-1]['AIC']}")
+
+    # Con empates (AIC a menos de 2 puntos del mejor) se elige el más simple,
+    # como en la sesión 5 (B5)
+    cercanos = tabla[tabla["AIC"] <= tabla["AIC"].iloc[0] + 2]
+    elegido = cercanos.sort_values(["parámetros", "AIC"]).iloc[0]
+    orden, orden_estacional = elegido["orden"], elegido["estacional"]
+    print(f"Elegido: SARIMA{orden}{orden_estacional}, AIC {elegido['AIC']}, "
+          f"{elegido['parámetros']} parámetro(s) además de la varianza")
+
+    # Diagnóstico de residuos. Los primeros d + m·D son de arranque: el modelo
+    # no tiene con qué pronosticarlos, así que se descartan (sesión 5, B6)
+    ajuste = ajustar(y, orden, orden_estacional)
+    print("Coeficientes:", {k: round(v, 3) for k, v in ajuste.params.items()})
+    residuos = ajuste.resid.iloc[d + PERIODO * D:] * ESCALA
+    ljung = acorr_ljungbox(residuos, lags=[12, 24])
+    for h, fila_lb in ljung.iterrows():
+        print(f"Ljung-Box h={h}: estadístico {fila_lb['lb_stat']:.2f}, valor p {fila_lb['lb_pvalue']:.3f}")
+    print(f"Residuos: desviación {residuos.std():.1f} mm; más grande "
+          f"{residuos.abs().idxmax():%Y-%m} ({residuos[residuos.abs().idxmax()]:+.1f} mm)")
+
+    figura, (arriba, abajo) = plt.subplots(2, 1, figsize=(9, 5.5))
+    arriba.plot(residuos.index, residuos.to_numpy())
+    arriba.axhline(0, color="black", linewidth=0.8)
+    arriba.set_title(f"Residuos del SARIMA{orden}{orden_estacional}")
+    arriba.set_ylabel("mm/mes")
+    plot_acf(residuos, lags=36, ax=abajo, title="ACF de los residuos")
+    abajo.set_ylim(-1.05, 1.05)
+    abajo.set_xticks(range(0, 37, 6))
+    figura.tight_layout()
+    figura.savefig(FIGURAS / "residuos.png", dpi=120)
+    plt.close(figura)
+
+    return orden, orden_estacional
 
 
 def modelo_sarima(orden, orden_estacional):
-    """TODO: devuelva la función modelo(entrenamiento, h) del SARIMA elegido."""
-    raise NotImplementedError("SARIMA en el backtest")
+    """Devuelve la función modelo(entrenamiento, h) del SARIMA elegido."""
+    def modelo(entrenamiento, h):
+        ajuste = ajustar(entrenamiento / ESCALA, orden, orden_estacional)
+        return ajuste.forecast(h).to_numpy() * ESCALA
+    return modelo
 
 
 def exogenas(serie):
-    """TODO: DataFrame de variables conocidas de antemano, con el índice de la serie.
+    """Variables conocidas de antemano, con el índice de la serie y 12 meses más.
 
-    Por ejemplo, el número de festivos o de días hábiles de cada mes. Debe
-    cubrir también los 12 meses que siguen al final de la serie.
+    La lluvia del mes es una suma, así que un mes más largo acumula más: el
+    número de días del mes sale del calendario y se conoce con certeza para
+    cualquier mes futuro, sin fuga. Con la diferencia estacional (D = 1) solo
+    cambia de un año a otro en febrero (28 o 29 días).
     """
-    raise NotImplementedError("variables exógenas")
+    meses = pd.date_range(serie.index[0], serie.index[-1] + pd.DateOffset(months=12), freq="MS")
+    return pd.DataFrame({"dias_mes": meses.days_in_month.astype(float)}, index=meses)
+
+
+def describir_sarimax(serie, orden, orden_estacional, x):
+    """Ajusta el SARIMAX con toda la serie e imprime el efecto de la exógena."""
+    ajuste = ajustar(serie / ESCALA, orden, orden_estacional, exog=x.loc[serie.index])
+    for nombre in x.columns:
+        print(f"\nSARIMAX, {nombre}: {ajuste.params[nombre] * ESCALA:+.1f} mm por unidad, "
+              f"valor p {ajuste.pvalues[nombre]:.3f}; AIC {ajuste.aic:.1f}")
 
 
 def modelo_sarimax(orden, orden_estacional, x):
-    """TODO: devuelva modelo(entrenamiento, h) de un SARIMAX con exógenas x.
+    """Devuelve modelo(entrenamiento, h) de un SARIMAX con exógenas x.
 
-    Use x.loc[entrenamiento.index] para ajustar y
-    x.loc[fechas_siguientes(entrenamiento, h)] para pronosticar.
+    Ajusta con x.loc[entrenamiento.index] y pronostica con
+    x.loc[fechas_siguientes(entrenamiento, h)]: solo usa los días de los meses
+    futuros, que se conocen en el origen.
     """
-    raise NotImplementedError("SARIMAX en el backtest")
+    def modelo(entrenamiento, h):
+        ajuste = ajustar(entrenamiento / ESCALA, orden, orden_estacional,
+                         exog=x.loc[entrenamiento.index])
+        futuro = x.loc[fechas_siguientes(entrenamiento, h)]
+        return ajuste.forecast(h, exog=futuro).to_numpy() * ESCALA
+    return modelo
 
 
 # ============================================================
@@ -359,6 +440,7 @@ def main():
             filas.append(fila(f"SARIMA{orden}{estacional}", serie,
                               modelo_sarima(orden, estacional)))
             x = exogenas(serie)
+            describir_sarimax(serie, orden, estacional, x)
             filas.append(fila(f"SARIMAX{orden}{estacional} + exógenas", serie,
                               modelo_sarimax(orden, estacional, x)))
         except NotImplementedError as error:
@@ -368,6 +450,16 @@ def main():
     tabla.to_csv(RESULTADOS / "metricas.csv", index=False)
     print(tabla.drop(columns="decision").to_string(index=False))
     print("Mejor modelo por RMSE:", tabla.iloc[0]["modelo"])
+
+    # Cuánto mejora el mejor modelo a la mejor línea base, en cada métrica
+    mejor = tabla.iloc[0]
+    bases = tabla[tabla["modelo"].isin(["ingenuo", "estacional ingenuo"])]
+    base = bases.iloc[0]
+    if mejor["modelo"] != base["modelo"]:
+        print(f"Frente a la mejor línea base ({base['modelo']}):")
+        for metrica in ["RMSE", "MAE", "MAPE"]:
+            cambio = 100 * (mejor[metrica] - base[metrica]) / base[metrica]
+            print(f"  {metrica}: {base[metrica]:.2f} -> {mejor[metrica]:.2f} ({cambio:+.1f} %)")
 
 
 if __name__ == "__main__":

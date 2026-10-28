@@ -227,28 +227,86 @@ motivo físico para una relación de 7 meses.
 
 ## 5. Modelos clásicos
 
-{{La rejilla de órdenes y su AIC. El modelo elegido, escrito con su
-ecuación.}}
+Con $d = 0$ y $D = 1$ fijos, se probaron todas las combinaciones pequeñas de
+los demás órdenes ($p, q \in \{0, 1, 2\}$ y $P, Q \in \{0, 1\}$): 36 modelos,
+comparados por AIC, que premia el buen ajuste y castiga cada parámetro de más.
+Los cinco mejores:
+
+| Modelo | Parámetros | AIC |
+|---|---|---|
+| **SARIMA$(0,0,0)(0,1,1)_{12}$** | 1 | **382.0** |
+| SARIMA$(0,0,0)(1,1,1)_{12}$ | 2 | 383.2 |
+| SARIMA$(2,0,2)(0,1,1)_{12}$ | 5 | 383.4 |
+| SARIMA$(0,0,1)(0,1,1)_{12}$ | 2 | 384.0 |
+| SARIMA$(1,0,0)(0,1,1)_{12}$ | 2 | 384.0 |
+
+Gana el más simple, el mismo que sugerían la ACF y la PACF (sección 4); los
+que agregan parámetros no mejoran. El peor de los 36, sin el término
+estacional, tiene AIC 428.0. Las cifras salen de ajustar la serie dividida por
+100, para que el optimizador funcione bien. El modelo elegido es
+
+$$y_t - y_{t-12} = \varepsilon_t + \Theta\,\varepsilon_{t-12}, \qquad \Theta = -0.853.$$
+
+En palabras: la lluvia de este abril es la del abril pasado, corregida por
+cuánto se equivocó el modelo ese mes. Como $\Theta$ está cerca de $-1$, el
+modelo termina pronosticando un **patrón casi fijo para cada mes**, parecido
+al promedio de todos los abriles, todos los mayos, etc. Tiene sentido: las
+temporadas de lluvia llegan cada año en las mismas fechas.
 
 ![Residuos](../figuras/residuos.png)
 
-{{Diagnóstico de los residuos: Ljung-Box y lo que muestran la gráfica y su
-ACF.}}
+**Residuos.** Si el modelo captó todo lo que se puede predecir, lo que sobra
+debe ser azar. La gráfica no muestra patrones y la ACF no tiene barras fuera
+de la banda (el rezago 7 apenas la roza). La prueba de **Ljung-Box**, cuya
+hipótesis es que los residuos son azar, lo confirma: valor p **0.429** con 12
+rezagos y **0.266** con 24, ambos mayores que 0.05. El error típico es de
+110.6 mm, y el residuo más grande es abril de 2024 (+279.6 mm), el mes más
+lluvioso de la serie.
 
-{{La variable exógena: qué es, por qué se conoce de antemano y si mejora al
-SARIMA.}}
+**SARIMAX.** La variable exógena es el **número de días del mes**. La lluvia
+mensual es una suma, así que un mes más largo puede acumular más. Se conoce
+con certeza para cualquier mes futuro, porque sale del calendario: no hay
+fuga. El modelo agrega un término $\beta\,x_t$, con $x_t$ los días del mes:
+
+$$y_t = \beta\,x_t + u_t, \qquad u_t \sim \text{SARIMA}(0,0,0)(0,1,1)_{12}.$$
+
+El resultado es $\beta = -100.9$ mm por día, con valor p 0.095, y el AIC baja
+apenas de 382.0 a 381.6. El signo negativo no tiene sentido físico, y la
+explicación es que, al comparar cada mes con el mismo mes del año anterior,
+los días solo cambian en febrero (28 o 29). El efecto sale de unos pocos
+febreros bisiestos, así que **probablemente es casualidad**. En el
+*backtest* el SARIMAX mejora un poco al SARIMA (RMSE 113.79 frente a 117.05),
+pero con tan poca evidencia no se puede afirmar que la exógena aporte.
 
 ## 6. Tabla de métricas
 
-{{Copie aquí `resultados/metricas.csv` como tabla de Markdown, ordenada por
-RMSE.}}
-
 | Modelo | Decisión | RMSE | MAE | MAPE (%) |
 |---|---|---|---|---|
-| {{...}} | {{...}} | {{...}} | {{...}} | {{...}} |
+| SARIMAX$(0,0,0)(0,1,1)_{12}$ + días del mes | Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto | **113.79** | **91.75** | 54.31 |
+| SARIMA$(0,0,0)(0,1,1)_{12}$ | Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto | 117.05 | 93.35 | 54.67 |
+| Estacional ingenuo | Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto | 154.93 | 112.39 | **43.90** |
+| Ingenuo | Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto | 219.76 | 185.33 | 121.05 |
 
 ## 7. Conclusión
 
-{{El mejor modelo clásico, cuánto mejora a la mejor línea base en cada
-métrica y en qué meses o tramos sigue fallando. Es el modelo que el
-miniproyecto 2 debe superar.}}
+El mejor modelo clásico es el **SARIMAX$(0,0,0)(0,1,1)_{12}$ con los días
+del mes**. Frente a la mejor línea base, el estacional ingenuo:
+
+| Métrica | Estacional ingenuo | SARIMAX | Cambio |
+|---|---|---|---|
+| RMSE | 154.93 | 113.79 | **−26.6 %** |
+| MAE | 112.39 | 91.75 | **−18.4 %** |
+| MAPE | 43.90 | 54.31 | +23.7 % |
+
+Mejora en las dos métricas en milímetros: se equivoca en promedio unos 21 mm
+menos por mes. El MAPE empeora porque el modelo, al pronosticar un patrón
+casi fijo, falla en porcentaje en los meses muy secos, donde unos pocos
+milímetros de error pesan mucho. Casi toda la mejora viene del SARIMA; la
+exógena aporta poco y probablemente por azar, así que el SARIMA solo es una
+alternativa igual de válida y más simple.
+
+El modelo sigue fallando en los meses extremos: los muy lluviosos, como abril
+de 2024, y los meses medidos con totales diarios (sección 1), porque
+pronostica un año típico. Con un error típico de unos 110 mm, la mitad de la
+variación de la lluvia sigue sin explicarse (sección 2). Este SARIMAX es el
+modelo que el miniproyecto 2 debe superar.
