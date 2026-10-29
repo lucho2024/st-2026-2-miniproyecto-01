@@ -121,9 +121,32 @@ señalados como posible artefacto*.
 
 ![STL](../figuras/stl.png)
 
-{{Lectura de la descomposición STL: cómo es la tendencia, qué meses quedan
-arriba y abajo en la estacional y con cuánto, y dónde está el residuo más
-grande.}}
+La STL separa la serie en tres partes, $y_t = T_t + S_t + R_t$: la tendencia,
+la estacionalidad y el residuo. La versión robusta evita que los meses
+atípicos distorsionen las dos primeras.
+
+**Tendencia.** No sube ni baja de forma sostenida: oscila entre unos 155 y
+231 mm/mes entre 2015 y 2024, con años más lluviosos (2018, 2021) y más secos
+(2015, 2023) que coinciden con La Niña y El Niño. El salto final (289 mm/mes
+en 2025 y 339 en 2026) se debe en parte a que 2025 fue muy lluvioso y en
+parte a que la tendencia es menos confiable en el extremo de la serie.
+
+**Estacionalidad.** El año tiene **dos temporadas de lluvia y dos secas**,
+como es típico en la zona andina colombiana:
+
+| Ene | Feb | Mar | Abr | May | Jun | Jul | Ago | Sep | Oct | Nov | Dic |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| −40.6 | +24.1 | +69.3 | **+118.6** | +109.4 | −59.0 | −102.7 | **−125.1** | −93.4 | +20.8 | +68.1 | +17.3 |
+
+El mes más lluvioso es **abril (+118.6 mm** sobre la tendencia) y el más seco
+es **agosto (−125.1 mm)**; octubre y noviembre forman la segunda temporada de
+lluvias. Entre abril y agosto hay unos 244 mm de diferencia.
+
+**Residuo.** Es grande: casi tan importante como la estacionalidad, lo que
+indica que buena parte de la lluvia de cada mes no sigue un patrón regular.
+Por eso cabe esperar errores de pronóstico altos con cualquier modelo. El
+residuo más grande es **diciembre de 2025 (−356.9 mm)**, explicado en la
+sección 1.
 
 ## 3. Líneas base y backtest
 
