@@ -157,12 +157,53 @@ prueba. Por qué ningún dato posterior al origen entra al modelo.}}
 
 ## 4. Estacionariedad e identificación
 
-{{Valor p de la prueba ADF para la serie, su diferencia regular, la
-estacional y las dos juntas. El d y el D elegidos.}}
+Un SARIMA necesita una serie **estacionaria**, que oscile alrededor de un
+nivel fijo. Para lograrlo se puede diferenciar: restar el mes anterior
+($d = 1$) quita una tendencia, y restar el mismo mes del año anterior
+($D = 1$) quita el ciclo anual. La prueba ADF decide si hace falta: su
+hipótesis nula es que la serie **no** es estacionaria, y un valor p menor
+que 0.05 la rechaza. En la serie original se usa `regression='ct'` (constante
+y tendencia), para no confundir una posible recta con falta de
+estacionariedad; en las diferenciadas, `'c'`, porque ya no tienen tendencia.
+
+| Versión | $d$ | $D$ | `regression` | Valor p |
+|---|---|---|---|---|
+| Original | 0 | 0 | `ct` | 0.2092 |
+| Original | 0 | 0 | `c` | 0.0992 |
+| `diff()` | 1 | 0 | `c` | $3.1 \times 10^{-11}$ |
+| `diff(12)` | 0 | 1 | `c` | **0.0033** |
+| `diff(12).diff()` | 1 | 1 | `c` | 0.0017 |
+
+La original no pasa la prueba. La regla del curso es elegir la combinación
+con **menos diferencias** que pase, y aquí hay un empate: `diff()` y
+`diff(12)` pasan las dos con una sola diferencia. Se elige
+**$d = 0$, $D = 1$** por tres razones:
+
+- La serie no tiene tendencia sino un ciclo anual (sección 2), así que la
+  diferencia que corresponde es la estacional.
+- Con `diff()` el ciclo anual no desaparece: su ACF todavía tiene una barra
+  positiva en el rezago 12 (+0.22). Además, la barra negativa en el rezago 1
+  (−0.29) y la PACF negativa en los rezagos 1 a 5 son la señal de
+  **diferenciar de más**. La ADF no detecta este problema, porque no está
+  pensada para el ciclo estacional.
+- Es la misma elección del taller 1.
+
+Con la serie elegida, $w_t = y_t - y_{t-12}$ (122 datos, banda de
+$\pm 1.96/\sqrt{122} \approx \pm 0.177$):
 
 ![ACF y PACF](../figuras/acf_pacf.png)
 
-{{Qué rezagos salen de las bandas y qué órdenes sugieren.}}
+- **ACF fuera de la banda:** rezagos 7 (+0.27) y 12 (−0.35).
+- **PACF fuera de la banda:** rezagos 7 (+0.25), 12 (−0.36), 20 (−0.26) y
+  24 (−0.28).
+
+La ACF **se corta** en el rezago 12 y la PACF **baja poco a poco** en 12 y
+24: es la firma de un término **MA estacional** ($Q = 1$). En los rezagos
+cortos no queda casi nada, lo que sugiere $p = q = 0$. El punto de partida
+para la sección 5 es entonces un **SARIMA$(0,0,0)(0,1,1)_{12}$**. La barra en
+el rezago 7 probablemente es azar: con 36 rezagos y bandas al 95 % se esperan
+unas $36 \times 0.05 \approx 1.8$ barras fuera por casualidad, y no hay un
+motivo físico para una relación de 7 meses.
 
 ## 5. Modelos clásicos
 
