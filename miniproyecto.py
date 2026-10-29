@@ -44,7 +44,7 @@ PERIODO = 12
 
 # Lo que se hizo con los huecos y con los datos atípicos, en una línea. Va
 # a la columna `decision` de la tabla de métricas.
-DECISION = "Sin huecos: índice mensual completo verificado, sin códigos de faltante; atípicos conservados por lluvia real"
+DECISION = "Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto"
 
 
 def preparar(serie):
@@ -77,13 +77,23 @@ def preparar(serie):
     print(f"  Valores negativos / centinelas  : {negativos}")
     print(f"  Meses con lluvia = 0 mm         : {ceros} (mínimo observado: {serie.min():.1f} mm)")
 
-    # 3. Detección de atípicos estadísticos
-    q1 = serie.quantile(0.25)
-    q3 = serie.quantile(0.75)
+    # 3. Atípicos sobre el residuo de la STL robusta: compara cada mes con lo
+    # esperado para ese mes (tendencia + estacional), no con toda la serie
+    stl = STL(serie, period=PERIODO, robust=True).fit()
+    residuo = stl.resid
+    q1, q3 = residuo.quantile([0.25, 0.75])
     iqr = q3 - q1
-    atipicos = serie[(serie < q1 - 1.5 * iqr) | (serie > q3 + 1.5 * iqr)]
-    print(f"  Atípicos estadísticos (1.5*IQR) : {len(atipicos)} meses detectados (máximo: {serie.max():.1f} mm en {serie.idxmax():%Y-%m})")
-    print(f"  Decisión sobre atípicos         : Conservar (corresponden a lluvia real / eventos La Niña)\n")
+    limite_inf, limite_sup = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+    atipicos = residuo[(residuo < limite_inf) | (residuo > limite_sup)]
+    print(f"  Atípicos (IQR del residuo STL)  : {len(atipicos)} meses fuera de "
+          f"[{limite_inf:.1f}, {limite_sup:.1f}] mm")
+    tabla = pd.DataFrame({"observado": serie[atipicos.index],
+                          "esperado": (stl.trend + stl.seasonal)[atipicos.index],
+                          "residuo": atipicos,
+                          "peso STL": pd.Series(stl.weights, index=serie.index)[atipicos.index]})
+    tabla.index = tabla.index.strftime("%Y-%m")
+    print(tabla.sort_values("residuo", key=abs, ascending=False).round(2).to_string())
+    print("  Decisión sobre atípicos         : conservar (meses con totales diarios: posible artefacto de medición)\n")
 
     # Validaciones formales
     assert nans_al_reindexar == 0, f"Faltan {nans_al_reindexar} meses en la secuencia histórica"
@@ -96,8 +106,9 @@ def preparar(serie):
 def graficar_serie(serie):
     figura, eje = plt.subplots(figsize=(9, 3.4))
     eje.plot(serie.index, serie.to_numpy())
-    eje.set_title(f"{VALOR}: serie mensual")
-    eje.set_ylabel(VALOR)
+    eje.set_title("Precipitación mensual – Estación CDEA El Topacio, río Pance (CVC)")
+    eje.set_ylabel("mm/mes")
+    eje.set_xlabel("mes")
     figura.tight_layout()
     figura.savefig(FIGURAS / "serie.png", dpi=120)
     plt.close(figura)
