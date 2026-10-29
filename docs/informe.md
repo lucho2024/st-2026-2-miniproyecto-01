@@ -150,10 +150,30 @@ sección 1.
 
 ## 3. Líneas base y backtest
 
-{{Cómo es el backtest: cuántos orígenes, horizonte y qué meses quedan en la
-prueba. Por qué ningún dato posterior al origen entra al modelo.}}
+Los modelos se evalúan sobre los **últimos 24 meses** (marzo de 2024 a
+febrero de 2026). Desde cada uno de **13 puntos de partida** (febrero de 2024
+a febrero de 2025), el modelo aprende solo con los meses anteriores y
+pronostica los **12 siguientes**, que se comparan con la lluvia real. Los
+errores de los 13 intentos se promedian.
 
-{{RMSE, MAE y MAPE del ingenuo y del estacional ingenuo, y cuál gana.}}
+Como el modelo nunca ve los meses que debe pronosticar, no hay **fuga de
+información**: el resultado se parece a lo que pasaría al pronosticar de
+verdad.
+
+Las dos líneas base son los pronósticos más simples posibles:
+
+| Modelo | Qué hace | RMSE | MAE | MAPE (%) |
+|---|---|---|---|---|
+| Estacional ingenuo | Repite el mismo mes del año anterior | **154.93** | **112.39** | **43.90** |
+| Ingenuo | Repite el último mes observado | 219.76 | 185.33 | 121.05 |
+
+**Gana el estacional ingenuo**: en una serie con un ciclo anual tan marcado,
+repetir el abril pasado funciona mucho mejor que repetir el último mes. Es la
+marca que deben superar el SARIMA y el SARIMAX.
+
+El MAPE se infla en los meses muy secos, donde un error pequeño en milímetros
+es enorme en porcentaje. Por eso los modelos se comparan sobre todo con el
+**RMSE y el MAE**, que están en milímetros.
 
 ## 4. Estacionariedad e identificación
 
