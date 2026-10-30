@@ -212,7 +212,7 @@ el buen ajuste y castiga los parámetros de más:
 |---|---|
 | **SARIMA$(0,0,0)(0,1,1)_{12}$** | **382.0** |
 | SARIMA$(0,0,0)(1,1,1)_{12}$ | 383.2 |
-| SARIMA$(2,0,2)(0,1,1)_{12}$ | 383.4 |
+| SARIMA$(2,0,2)(0,1,1)_{12}$ | 384.0 |
 
 Gana el más simple, el mismo que sugería la ACF:
 
@@ -244,7 +244,7 @@ diarios señalados como posible artefacto*.
 | Modelo | RMSE | MAE | MAPE (%) |
 |---|---|---|---|
 | SARIMAX$(0,0,0)(0,1,1)_{12}$ + días del mes | **113.79** | **91.75** | 54.31 |
-| SARIMA$(0,0,0)(0,1,1)_{12}$ | 117.05 | 93.35 | 54.67 |
+| SARIMA$(0,0,0)(0,1,1)_{12}$ | 117.05 | 93.35 | 54.68 |
 | Estacional ingenuo | 154.93 | 112.39 | **43.90** |
 | Ingenuo | 219.76 | 185.33 | 121.05 |
 

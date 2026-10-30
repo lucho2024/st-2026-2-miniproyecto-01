@@ -29,8 +29,8 @@ entrega pierde el 20 %; quien no aparezca aquí no cuenta como parte del grupo.
 
 | Nombre completo | Código | Correo institucional |
 |---|---|---|
-| | | |
-| | | |
+| Gustavo Adolfo Morales Ortiz| 1130669987 | gustavo_ado.morales@uao.edu.co|
+|Luis Hernando Montoya Muñoz |1144201150 |luis_her.montoya@uao.edu.co |
 | | | |
 
 ## Entrega

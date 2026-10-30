@@ -1,5 +1,5 @@
 modelo,decision,RMSE,MAE,MAPE
 "SARIMAX(0, 0, 0)(0, 1, 1, 12) + exógenas",Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto,113.79,91.75,54.31
-"SARIMA(0, 0, 0)(0, 1, 1, 12)",Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto,117.05,93.35,54.67
+"SARIMA(0, 0, 0)(0, 1, 1, 12)",Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto,117.05,93.35,54.68
 estacional ingenuo,Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto,154.93,112.39,43.9
 ingenuo,Sin huecos (regla del 80 % no activada); atípicos del residuo STL conservados; meses con totales diarios señalados como posible artefacto,219.76,185.33,121.05
