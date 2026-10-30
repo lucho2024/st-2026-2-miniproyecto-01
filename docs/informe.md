@@ -14,34 +14,26 @@ Autónoma Regional del Valle del Cauca (CVC)**, que suministró por correo
 electrónico, para uso académico, los archivos `EXPORT_CPANCE_PRECIP_*.xls`;
 se cita a la CVC como fuente.
 
-Los archivos traen dos tipos de registro: la **telemetría automática**, un
-dato cada 10 minutos (144 por día), y, en algunos días, un **total diario**
-anotado a las 07:00 (el día pluviométrico de 7 a. m. a 7 a. m.). La serie
-mensual se construyó con el script `preparar_serie.py`: une las hojas de los
-archivos, quita los registros duplicados y suma todos los registros de cada
-mes calendario, $y_t = \sum_{i \in \text{mes } t} p_i$, con $p_i$ la lluvia de
-cada registro. Un mes con menos del 80 % de días con algún dato se deja vacío.
-La serie resultante es **mensual**, va de **enero de 2015 a febrero de 2026** y
-tiene **134 observaciones**, más del doble del mínimo de 60 que necesita el
-*backtest* (24 meses de prueba y al menos 36 para el primer ajuste).
+La estación registra la lluvia de forma automática cada 10 minutos. Para
+obtener la serie mensual se unieron los archivos, se eliminaron los registros
+duplicados y se sumó toda la lluvia de cada mes. Un mes se habría dejado vacío
+si tuviera datos en menos del 80 % de sus días. La serie resultante va de
+**enero de 2015 a febrero de 2026** y tiene **134 observaciones** mensuales,
+suficientes para ajustar los modelos y evaluarlos en los últimos 24 meses.
 
 El grupo la eligió porque es insumo de un trabajo de tesis y porque tiene una
-estacionalidad marcada: el régimen de lluvias de la zona andina colombiana es
-**bimodal**, con temporadas húmedas en marzo–mayo y octubre–noviembre y una
-temporada seca en julio–agosto, lo que la hace adecuada para trabajar la
-diferencia estacional y el SARIMA.
+estacionalidad marcada. En la zona andina colombiana llueve en **dos
+temporadas** al año, una en marzo–mayo y otra en octubre–noviembre, con una
+temporada seca en julio–agosto. Por eso la serie se presta para trabajar la
+diferencia estacional y el modelo SARIMA.
 
 ![La serie](../figuras/serie.png)
 
-**Huecos.** Como en el curso (sesión 1, §7; sesión 2, §14), primero se
-comprueba si faltan meses, porque con huecos la STL devuelve vacíos sin avisar
-y las métricas se promedian sobre menos meses. La regla del 80 % nunca se
-activó: el mes con menos cobertura (mayo de 2017) tuvo datos en el 90 % de
-sus días. La función `preparar` reconstruye además el índice mensual
-completo: los 134 meses están presentes, sin fechas repetidas, sin valores
-negativos ni códigos de faltante (como $-999$) y sin meses en 0 mm (el mínimo
-es 5.7 mm, en agosto de 2019). No hubo nada que imputar; si hubiera huecos,
-la opción del curso sería la interpolación lineal.
+**Huecos.** Antes de modelar se revisó si faltaban meses. No faltó ninguno: el
+mes con menos datos (mayo de 2017) tuvo registros en el 90 % de sus días.
+Tampoco hay fechas repetidas, valores negativos ni meses en 0 mm (el mínimo es
+5.7 mm, en agosto de 2019). Como no hubo huecos, no fue necesario rellenar
+ningún dato.
 
 Al revisar los registros crudos apareció un problema que la cobertura no
 detecta: en algunos días la telemetría transmite **solo ceros** (143 registros
