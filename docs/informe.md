@@ -7,103 +7,60 @@ figuras son las que ese guion deja en `figuras/`. Las fórmulas van en LaTeX
 
 ## 1. La serie
 
-La serie es la **precipitación mensual acumulada (mm)** de la estación
-**CDEA El Topacio** (código 2629020601), en la cuenca del río Pance (Cali,
-Valle del Cauca). Proviene de la red hidrometeorológica de la **Corporación
-Autónoma Regional del Valle del Cauca (CVC)**, que suministró por correo
-electrónico, para uso académico, los archivos `EXPORT_CPANCE_PRECIP_*.xls`;
-se cita a la CVC como fuente.
+La serie es la **lluvia mensual (mm)** de la estación **CDEA El Topacio**
+(código 2629020601), en la cuenca del río Pance (Cali). Los datos los proporcionó
+la **Corporación Autónoma Regional del Valle del Cauca (CVC)** por correo, para
+uso académico, y se cita a la CVC como fuente.
 
-La estación registra la lluvia de forma automática cada 10 minutos. Para
-obtener la serie mensual se unieron los archivos, se eliminaron los registros
-duplicados y se sumó toda la lluvia de cada mes. Un mes se habría dejado vacío
-si tuviera datos en menos del 80 % de sus días. La serie resultante va de
-**enero de 2015 a febrero de 2026** y tiene **134 observaciones** mensuales,
-suficientes para ajustar los modelos y evaluarlos en los últimos 24 meses.
-
-El grupo la eligió porque es insumo de un trabajo de tesis y porque tiene una
-estacionalidad marcada. En la zona andina colombiana llueve en **dos
-temporadas** al año, una en marzo–mayo y otra en octubre–noviembre, con una
-temporada seca en julio–agosto. Por eso la serie se presta para trabajar la
-diferencia estacional y el modelo SARIMA.
+El sensor mide la lluvia cada 10 minutos. Para tener un dato por mes se
+sumaron todos los registros de cada mes. La serie va de **enero de 2015 a
+febrero de 2026: 134 meses**. Se eligió porque sirve para un trabajo de tesis
+y porque tiene un ciclo anual claro: llueve más en marzo–mayo y en
+octubre–noviembre, y menos en julio–agosto.
 
 ![La serie](../figuras/serie.png)
 
-**Huecos.** Antes de modelar se revisó si faltaban meses. No faltó ninguno: el
-mes con menos datos (mayo de 2017) tuvo registros en el 90 % de sus días.
-Tampoco hay fechas repetidas, valores negativos ni meses en 0 mm (el mínimo es
-5.7 mm, en agosto de 2019). Como no hubo huecos, no fue necesario rellenar
-ningún dato.
+**Huecos.** No falta ningún mes. Un mes se habría dejado vacío si tuviera
+datos en menos del 80 % de sus días, pero el peor (mayo de 2017) tiene el
+90 %. Tampoco hay fechas repetidas, valores negativos ni meses en 0 mm (el
+mínimo es 5.7 mm). No hubo que rellenar nada.
 
-Al revisar los registros crudos apareció un problema que la cobertura no
-detecta: en algunos días la telemetría transmite **solo ceros** (143 registros
-en 0 mm) y la lluvia del día aparece como un **total diario a las 07:00**, con
-valores de 30 a 131 mm, imposibles en 10 minutos. Todo indica que el sensor
-automático falló y la lluvia se registró por otra vía. Estos meses tienen la
-mayor parte de su lluvia en totales diarios:
+**Dos formas de medir.** En algunos meses el sensor marcó solo ceros y la
+lluvia quedó anotada como un **total del día a las 07:00** (de 30 a 131 mm,
+imposible en 10 minutos). En esos meses la mayor parte de la lluvia viene de
+esos totales diarios: 2015-05, 2015-06, 2019-04, 2020-11, 2022-01 a 2022-03,
+2022-06, 2023-05 y 2025-12. Por ejemplo, junio de 2022 tiene solo 69
+registros, cuando lo normal son unos 4 300.
 
-| Mes | Total (mm) | Parte en totales diarios |
-|---|---|---|
-| 2015-05 | 66.0 | 84 % |
-| 2015-06 | 43.0 | 98 % |
-| 2019-04 | 488.1 | 71 % |
-| 2020-11 | 224.6 | 67 % |
-| 2022-01 a 2022-03 | 185.0 / 464.1 / 340.0 | más del 90 % |
-| 2022-06 | 440.0 | casi todo (69 registros en el mes) |
-| 2023-05 | 291.0 | todo (un registro por día) |
-| 2025-12 | 145.4 | 64 % |
+**Atípicos.** Revisar la lluvia directamente no sirve: 400 mm es normal en
+abril y raro en agosto. Por eso se compara cada mes con **lo esperado para ese
+mes** (tendencia + estacional de la STL). La diferencia es el **residuo**, y
+es atípico el mes cuyo residuo queda fuera de
+$[Q_1 - 1.5\,\mathrm{IQR},\ Q_3 + 1.5\,\mathrm{IQR}]$, es decir, de
+$[-174.5,\ 172.7]$ mm. Salen 7 meses:
 
-La serie combina entonces dos formas de medir. En unos pocos días hay
-lluvia en los dos tipos de registro (por ejemplo, octubre de 2019), lo que
-sugiere un posible doble conteo pequeño.
-
-**Atípicos.** Un criterio sobre la serie completa no sirve para una serie
-estacional: 400 mm es normal en abril y extraordinario en agosto. Por eso los
-atípicos se buscan en el residuo de la STL robusta,
-$R_t = y_t - T_t - S_t$, que compara cada mes con lo esperado para ese mes. Se
-marca como atípico el mes cuyo residuo cae fuera de
-$[Q_1 - 1.5\,\mathrm{IQR},\ Q_3 + 1.5\,\mathrm{IQR}]$ de los residuos, es decir,
-fuera de $[-174.5,\ 172.7]$ mm. Salen 7 meses:
-
-| Mes | Observado (mm) | Esperado $T_t + S_t$ (mm) | Residuo (mm) | Peso STL |
+| Mes | Observado (mm) | Esperado (mm) | Residuo (mm) | Origen probable |
 |---|---|---|---|---|
-| 2025-12 | 145.4 | 502.3 | −356.9 | 0.00 |
-| 2022-06 | 440.0 | 139.2 | +300.8 | 0.00 |
-| 2024-04 | 577.0 | 299.1 | +277.9 | 0.00 |
-| 2023-03 | 474.6 | 232.2 | +242.4 | 0.01 |
-| 2022-05 | 121.6 | 344.4 | −222.8 | 0.07 |
-| 2023-10 | 371.8 | 157.4 | +214.4 | 0.10 |
-| 2022-02 | 464.1 | 278.4 | +185.7 | 0.23 |
+| 2025-12 | 145.4 | 502.3 | −356.9 | final de la serie y totales diarios |
+| 2022-06 | 440.0 | 139.2 | +300.8 | totales diarios |
+| 2024-04 | 577.0 | 299.1 | +277.9 | lluvia real |
+| 2023-03 | 474.6 | 232.2 | +242.4 | lluvia real |
+| 2022-05 | 121.6 | 344.4 | −222.8 | mes seco o falla del sensor |
+| 2023-10 | 371.8 | 157.4 | +214.4 | lluvia real |
+| 2022-02 | 464.1 | 278.4 | +185.7 | totales diarios |
 
-La STL robusta les da un peso casi nulo, de modo que no deforman la tendencia
-ni la estacional y quedan en el residuo. Su lectura, contrastada con los
-registros crudos:
+Los tres meses medidos con el sensor en temporada de lluvias son lluvia real,
+solo que más fuerte de lo habitual. Junio y febrero de 2022 pueden deberse al
+cambio en la forma de medir (aunque coinciden con La Niña 2020–2023). En
+diciembre de 2025 el esperado sale alto porque está al final de la serie,
+donde la tendencia es menos confiable.
 
-- **Diciembre de 2025** (−356.9 mm) es en buena parte un **efecto de borde**:
-  está al final de la serie, donde la tendencia LOESS solo tiene vecinos de un
-  lado y sube a unos 340 mm/mes, así que el valor esperado (502 mm) está
-  inflado. Además, el 64 % de su lluvia viene de totales diarios.
-- **Junio de 2022** (+300.8 mm) y **febrero de 2022** (+185.7 mm) se midieron
-  casi por completo con totales diarios. Junio cae en una temporada que
-  debería ser seca y durante el episodio de La Niña 2020–2023, que aumenta la
-  lluvia en la región andina; pero el cambio en la forma de medir también
-  puede explicar el salto. Son **posibles atípicos de medición**.
-- **Mayo de 2022** (−222.8 mm) es telemetría con el 97 % de los registros en
-  cero, justo entre dos meses medidos con totales diarios: puede ser un mes
-  seco o un sensor que falló sin respaldo diario.
-- **Abril de 2024** (577 mm, el máximo), **marzo de 2023** y **octubre de
-  2023** se midieron con telemetría y caen en temporadas húmedas: son meses
-  lluviosos reales, más intensos que lo habitual.
-
-**Decisión.** Los atípicos se **conservan**. Ninguno muestra un valor imposible
-(negativo o código de faltante). Los medidos con telemetría son lluvia real, y
-quitarlos haría que los modelos subestimaran los meses muy lluviosos, que son
-justamente los que interesa pronosticar. Los medidos con totales diarios
-quedan señalados como posibles artefactos de medición: corregirlos exigiría
-reconstruir la serie desde los registros crudos con una regla por día (usar
-el total diario cuando exista y, si no, la suma de la telemetría), lo que se
-deja para el miniproyecto 2. La serie no se modifica, así que esta decisión no
-introduce información del futuro en el *backtest*.
+**Decisión.** Los atípicos se **conservan**: ninguno es un valor imposible, y
+quitar los meses muy lluviosos haría que el modelo los subestimara. Los meses
+con totales diarios quedan señalados como posible error de medición;
+corregirlos exige reconstruir la serie desde los datos crudos, lo que se deja
+para el miniproyecto 2. Como la serie no se cambia, no entra información del
+futuro al *backtest*.
 
 Decisión (columna `decision` de la tabla): *sin huecos (regla del 80 % no
 activada); atípicos del residuo STL conservados; meses con totales diarios
