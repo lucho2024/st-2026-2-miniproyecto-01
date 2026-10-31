@@ -71,9 +71,9 @@ Esta sección está diseñada para que entiendas la **física y la matemática d
 * **El Porqué de los Atípicos en el Residuo (y NO en la serie original):**
   * *La analogía del abrigo:* Salir con abrigo de invierno en Bogotá en julio es normal; salir con abrigo al mediodía en Barranquilla es una anomalía.
   * En Pance, que caigan **350 mm en abril es normal** (mes lluvioso); pero que caigan **350 mm en agosto (mes seco) es una catástrofe**. Si buscas atípicos en la lluvia cruda, castigarías los meses lluviosos normales y no verías las verdaderas anomalías de los meses secos. El residuo compara cada mes contra su propio estándar estacional.
-* **El Porqué de Tukey ($1.5 	imes \text{IQR}$) frente a la Desviación Estándar ($\mu \pm 3\sigma$):**
+* **El Porqué de Tukey ($1.5 \times \text{IQR}$) frente a la Desviación Estándar ($\mu \pm 3\sigma$):**
   * La precipitación tiene eventos extremos asimétricos (como abril de 2024 con 577 mm). La media ($\mu$) y la desviación estándar ($\sigma$) son hipersensibles: un solo diluvio infla la media y la desviación de toda la serie, ocultando a los demás atípicos.
-  * La mediana y el **Rango Intercuartílico ($	ext{IQR} = Q_3 - Q_1$)** son medidas no paramétricas robustas que no se dejan distorsionar por extremos.
+  * La mediana y el **Rango Intercuartílico ($\text{IQR} = Q_3 - Q_1$)** son medidas no paramétricas robustas que no se dejan distorsionar por extremos.
 * **Cómo responder al profesor:**
   > *"Profesor, descompusimos con STL robusta porque el residuo $R_t$ aísla la verdadera sorpresa climática libre de estacionalidad. Usamos el criterio de Tukey sobre el residuo porque la media y la desviación estándar se inflan ante diluvios extremos, mientras que el IQR es inmune a ese sesgo".*
 
@@ -83,11 +83,11 @@ Esta sección está diseñada para que entiendas la **física y la matemática d
 * **Términos clave:**
   * **Estacionariedad en sentido débil:** Exige tres condiciones matemáticas invariables en el tiempo:
     1. **Media constante:** $\mathbb{E}[y_t] = \mu$ (la serie no tiene rampa ascendente ni descendente).
-    2. **Varianza constante:** $	ext{Var}(y_t) = \sigma^2$ (las oscilaciones no crecen con los años).
-    3. **Autocovarianza invariable:** $	ext{Cov}(y_t, y_{t-k}) = \gamma_k$ (la relación entre dos meses depende de cuántos meses de distancia hay entre ellos, no del año en que ocurran).
+    2. **Varianza constante:** $\text{Var}(y_t) = \sigma^2$ (las oscilaciones no crecen con los años).
+    3. **Autocovarianza invariable:** $\text{Cov}(y_t, y_{t-k}) = \gamma_k$ (la relación entre dos meses depende de cuántos meses de distancia hay entre ellos, no del año en que ocurran).
   * *La analogía:* Un péndulo en una habitación oscilando alrededor de un centro fijo es estacionario. Un cohete acelerando hacia el espacio no es estacionario.
 * **El Porqué:**
-  Los modelos ARIMA estiman coeficientes fijos ($\phi_1, \dots, \phi_p, 	heta_1, \dots, 	heta_q$). Si la serie cambia de nivel medio o de varianza con el tiempo, un sistema de ecuaciones con coeficientes constantes no puede modelar el proceso y los pronósticos matemáticamente divergen o pierden validez.
+  Los modelos ARIMA estiman coeficientes fijos ($\phi_1, \dots, \phi_p, \theta_1, \dots, \theta_q$). Si la serie cambia de nivel medio o de varianza con el tiempo, un sistema de ecuaciones con coeficientes constantes no puede modelar el proceso y los pronósticos matemáticamente divergen o pierden validez.
 * **Cómo responder al profesor:**
   > *"Profesor, ARIMA exige estacionariedad porque sus parámetros autorregresivos y de medias móviles asumen propiedades probabilísticas estables en el tiempo. Si la media no es constante, el modelo cometería errores crecientes hacia el infinito".*
 
@@ -99,7 +99,7 @@ Esta sección está diseñada para que entiendas la **física y la matemática d
   * **Raíz Unitaria:** Significa que el sistema tiene **memoria infinita** (como una caminata aleatoria): un shock aleatorio hoy altera la media de la serie para siempre. Si NO hay raíz unitaria, el sistema tiene memoria finita y regresa a su nivel de equilibrio.
   * **Hipótesis Nula ($H_0$):** La serie tiene raíz unitaria (es **NO estacionaria**).
   * **Hipótesis Alternativa ($H_1$):** La serie no tiene raíz unitaria (es **estacionaria**).
-  * **Regla de decisión:** Rechazamos $H_0$ si el $p	ext{-valor} < 0.05$.
+  * **Regla de decisión:** Rechazamos $H_0$ si el $p\text{-valor} < 0.05$.
 * **El Porqué de las opciones `'ct'` y `'c'`:**
   * En la serie original usamos `regression='ct'` (*constant + trend*) porque antes de diferenciar debemos comprobar si la serie tiene raíz unitaria en presencia de una posible tendencia lineal determinista. Dio $p = 0.2092$ (no se rechaza $H_0$; la serie original es no estacionaria).
   * En las series ya diferenciadas usamos `regression='c'` (*constant*) porque la diferenciación ya eliminó cualquier rampa y solo se evalúa si oscila sobre un promedio fijo.
@@ -109,7 +109,7 @@ Esta sección está diseñada para que entiendas la **física y la matemática d
 ---
 
 ### 5. ¿Por qué elegir $d=0, D=1$ y NO $d=1, D=0$? (La Pregunta Reina)
-Ambas transformaciones dieron $p	ext{-valor} < 0.05$ en el ADF. Sin embargo, elegir $d=1, D=0$ es un grave error técnico por tres razones:
+Ambas transformaciones dieron $p\text{-valor} < 0.05$ en el ADF. Sin embargo, elegir $d=1, D=0$ es un grave error técnico por tres razones:
 1. **Física del Fenómeno:** La precipitación en Pance **no tiene tendencia secular acumulativa** (no sube año tras año indefinidamente). En cambio, tiene un ciclo estacional rígido de 12 meses. La operación matemáticamente coherente con la física de la cuenca es la diferencia estacional $D=1$ ($y_t - y_{t-12}$).
 2. **Sobrediferenciación (*Overdifferencing*):** Si aplicas diferencia regular $d=1$ a una serie sin tendencia, induces autocorrelación negativa artificial en el rezago 1 ($-0.29$) y dejas intacto el ciclo en el rezago 12. Creas ruido espurio y destruyes la estructura real.
 3. **Limitación Matemática del ADF:** La prueba ADF estándar **solo detecta raíces unitarias regulares en frecuencia cero**, no raíces unitarias estacionales en frecuencias armónicas ($2\pi / 12$). Que `diff()` dé $p < 0.05$ es un falso amigo: el ADF cree que la serie es estacionaria simplemente porque ya no hay tendencia regular, ignorando que la estacionalidad sigue viva.
@@ -135,17 +135,17 @@ Ambas transformaciones dieron $p	ext{-valor} < 0.05$ en el ADF. Sin embargo, ele
 
 ---
 
-### 7. ¿Qué hace exactamente la ecuación del modelo $	ext{SARIMA}(0,0,0)(0,1,1)_{12}$?
+### 7. ¿Qué hace exactamente la ecuación del modelo $\text{SARIMA}(0,0,0)(0,1,1)_{12}$?
 * **La Ecuación Teórica:**
-  $$y_t - y_{t-12} = arepsilon_t + \Theta arepsilon_{t-12}$$
+  $$y_t - y_{t-12} = \varepsilon_t + \Theta \varepsilon_{t-12}$$
 * **Nuestros Parámetros Calibrados:**
   * $\Theta = -0.853$ (coeficiente `ma.S.L12`, altamente significativo con $p < 0.001$).
-  * Despejando el pronóstico esperado ($\hat{y}_t$, asumiendo choque futuro esperado $arepsilon_t = 0$):
-    $$\hat{y}_t = y_{t-12} - 0.853 \cdot arepsilon_{t-12}$$
+  * Despejando el pronóstico esperado ($\hat{y}_t$, asumiendo choque futuro esperado $\varepsilon_t = 0$):
+    $$\hat{y}_t = y_{t-12} - 0.853 \cdot \varepsilon_{t-12}$$
 * **Significado en Español Humano (La física del modelo):**
   * Para estimar la lluvia de abril de este año, el modelo toma como referencia la lluvia de abril del año anterior ($y_{t-12}$).
-  * Si el año anterior ocurrió un choque climático atípico (por ejemplo, llovió 150 mm más de lo normal por una tormenta imprevista, $arepsilon_{t-12} = +150$), el modelo **no comete el error de proyectar que esa tormenta se repetirá**.
-  * Al multiplicar por $\Theta = -0.853$, el modelo le **descuenta el $85.3\%$ de esa anomalía** ($ -0.853 	imes 150 pprox -128	ext{ mm}$), regresando la predicción hacia la normalidad climatológica de la estación.
+  * Si el año anterior ocurrió un choque climático atípico (por ejemplo, llovió 150 mm más de lo normal por una tormenta imprevista, $\varepsilon_{t-12} = +150$), el modelo **no comete el error de proyectar que esa tormenta se repetirá**.
+  * Al multiplicar por $\Theta = -0.853$, el modelo le **descuenta el $85.3\%$ de esa anomalía** ($ -0.853 \times 150 \approx -128\text{ mm}$), regresando la predicción hacia la normalidad climatológica de la estación.
   * **Es un mecanismo automático de memoria y amortiguamiento:** confía en el ciclo anual, pero no se deja engañar por los excesos del año pasado.
 * **Cómo responder al profesor:**
   > *"Profesor, $\Theta = -0.853$ actúa como un amortiguador estacional: descuenta el 85% de las anomalías climáticas ocurridas en el mismo mes del año anterior, evitando que eventos atípicos contaminen el pronóstico futuro y retornando la serie a su régimen medio".*
@@ -154,7 +154,7 @@ Ambas transformaciones dieron $p	ext{-valor} < 0.05$ en el ADF. Sin embargo, ele
 
 ### 8. Por qué el AIC castiga parámetros y por qué NO compara diferentes $d$ y $D$
 * **Términos clave:**
-  * **Criterio de Información de Akaike:** $	ext{AIC} = 2k - 2\ln L$.
+  * **Criterio de Información de Akaike:** $\text{AIC} = 2k - 2\ln L$.
   * **$\ln L$ (Log-verosimilitud):** Mide qué tan bien se ajusta la distribución probabilística del modelo a los datos reales observados. A mayor verosimilitud, mejor ajuste.
   * **$2k$ (Penalización por parsimonia):** $k$ es el número de parámetros del modelo. Cada parámetro adicional te suma $+2$ al AIC.
   * **Principio de Parsimonia (Navaja de Ockham):** Entre dos modelos que explican lo mismo, el más simple es el preferido porque no sobreajusta (*overfitting*).
@@ -174,9 +174,9 @@ Ambas transformaciones dieron $p	ext{-valor} < 0.05$ en el ADF. Sin embargo, ele
   * **Prueba de Ljung-Box:** Evalúa conjuntamente si las primeras $h$ autocorrelaciones de los residuos son distintas de cero.
     * $H_0$: Los residuos están incorrelacionados (son ruido blanco, ¡lo deseado!).
     * $H_1$: Queda correlación serial remanente en los errores.
-    * Criterio: $p	ext{-valor} > 0.05 \implies$ No se rechaza $H_0$ (el modelo pasa la prueba).
+    * Criterio: $p\text{-valor} > 0.05 \implies$ No se rechaza $H_0$ (el modelo pasa la prueba).
 * **El Porqué de descartar los primeros 12 meses en el diagnóstico:**
-  * El modelo utiliza un retardo estacional de orden 12 ($y_{t-12}$ y $arepsilon_{t-12}$).
+  * El modelo utiliza un retardo estacional de orden 12 ($y_{t-12}$ y $\varepsilon_{t-12}$).
   * Para los primeros 12 meses de la serie no existe un año previo disponible dentro de la ventana muestral; por tanto, esos primeros 12 meses corresponden a un periodo de inicialización o calentamiento (*burn-in*). Incluirlos generaría residuos espurios que distorsionarían las pruebas de hipótesis.
 * **Nuestros Resultados:** A 12 meses dio $p = 0.429$ y a 24 meses dio $p = 0.266$. Ambos son holgadamente superiores a 0.05, certificando que los residuos son ruido blanco puro.
 * **Cómo responder al profesor:**
@@ -189,14 +189,14 @@ Ambas transformaciones dieron $p	ext{-valor} < 0.05$ en el ADF. Sin embargo, ele
   * **Rolling Origin (Origen Rodante):** Esquema de validación secuencial en el que el modelo se recalibra o proyecta en múltiples ventanas temporales ($t_0, t_1, \dots$). En nuestro caso evaluamos 13 orígenes proyectando a $h=1\dots12$ meses cada vez.
   * **RMSE (Raíz del Error Cuadrático Medio):** Mide el error promedio ponderando más fuertemente los errores grandes (por elevar al cuadrado).
   * **MAE (Error Absoluto Medio):** Mide el error promedio directo en las unidades físicas de la variable (milímetros de lluvia).
-  * **MAPE (Error Porcentual Absoluto Medio):** $	ext{MAPE} = rac{1}{n}\sum |rac{y_t - \hat{y}_t}{y_t}| 	imes 100\%$.
+  * **MAPE (Error Porcentual Absoluto Medio):** $\text{MAPE} = \frac{1}{n}\sum |\frac{y_t - \hat{y}_t}{y_t}| \times 100\%$.
 * **El Porqué la Validación Rodante supera al split fijo 80/20:**
   * Un corte fijo es vulnerable al clima: si el periodo de prueba cae en un año con Fenómeno de El Niño severo (sequía extraordinaria), el modelo parecerá malo por pura mala suerte climática. La validación con 13 orígenes garantiza que el modelo fue probado en épocas secas, húmedas y de transición.
 * **La Trampa del MAPE con Datos de Lluvia:**
-  * En meses secos (enero o agosto en Cali), la lluvia real puede ser de apenas **$5	ext{ mm}$** ($y_t = 5$).
-  * Si el modelo pronostica **$25	ext{ mm}$**, el error físico es mínimo: solo $20	ext{ mm}$ (un charco menor).
-  * Sin embargo, el cálculo porcentual arroja: $rac{|5 - 25|}{5} 	imes 100\% = \mathbf{400\%}$.
-  * Al promediar, esos porcentajes astronómicos distorsionan el MAPE global (54.31%). Por esa razón, en hidrología y meteorología el MAPE se reporta con salvedades y las decisiones operativas se toman siempre con base en el **MAE ($91.75	ext{ mm}$)** y el **RMSE ($113.79	ext{ mm}$)**.
+  * En meses secos (enero o agosto en Cali), la lluvia real puede ser de apenas **$5\text{ mm}$** ($y_t = 5$).
+  * Si el modelo pronostica **$25\text{ mm}$**, el error físico es mínimo: solo $20\text{ mm}$ (un charco menor).
+  * Sin embargo, el cálculo porcentual arroja: $\frac{|5 - 25|}{5} \times 100\% = \mathbf{400\%}$.
+  * Al promediar, esos porcentajes astronómicos distorsionan el MAPE global (54.31%). Por esa razón, en hidrología y meteorología el MAPE se reporta con salvedades y las decisiones operativas se toman siempre con base en el **MAE ($91.75\text{ mm}$)** y el **RMSE ($113.79\text{ mm}$)**.
 * **Cómo responder al profesor:**
   > *"Profesor, evaluamos con 13 orígenes rodantes para medir estabilidad climática real sin sesgo de un solo año. El MAPE se eleva al 54% debido a la división por valores cercanos a cero en estiaje; por eso la superioridad de nuestro modelo se fundamenta en la reducción del 18.4% en MAE y 26.6% en RMSE en milímetros reales".*
 
@@ -207,7 +207,7 @@ Ambas transformaciones dieron $p	ext{-valor} < 0.05$ en el ADF. Sin embargo, ele
   * **MLE (Maximum Likelihood Estimation):** Algoritmo numérico que optimiza los parámetros encontrando el máximo de una función hiperdimensional mediante derivadas (gradientes y matriz Hessiana).
   * **Inestabilidad Numérica:** Error de precisión en punto flotante cuando los datos tienen órdenes de magnitud muy dispares.
 * **El Porqué:**
-  La lluvia en Pance alcanza valores de hasta 577 mm, con varianzas muestrales superiores a $10\,000$. Cuando el algoritmo BFGS intenta optimizar simultáneamente parámetros decimales pequeños ($\Theta pprox -0.85$) junto a varianzas del orden de $10\,000$, las matrices numéricas se malcondicionan y el algoritmo puede fallar en converger.
+  La lluvia en Pance alcanza valores de hasta 577 mm, con varianzas muestrales superiores a $10\,000$. Cuando el algoritmo BFGS intenta optimizar simultáneamente parámetros decimales pequeños ($\Theta \approx -0.85$) junto a varianzas del orden de $10\,000$, las matrices numéricas se malcondicionan y el algoritmo puede fallar en converger.
   Al dividir la serie por 100, la precipitación queda acotada en el rango $[0.05, 5.77]$, logrando una convergencia matemática inmediata, robusta y exacta. Al finalizar, las predicciones y errores se re-multiplican por 100 para entregar métricas en milímetros reales.
 * **Cómo responder al profesor:**
   > *"Profesor, la división por 100 es una buena práctica de ingeniería computacional para evitar el mal condicionamiento de la matriz Hessiana en la optimización por máxima verosimilitud. Permite una convergencia rápida y precisa sin alterar en absoluto las propiedades estadísticas del proceso".*
